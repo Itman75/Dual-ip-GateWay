@@ -1,4 +1,4 @@
-# 🛡️ Dual-IP Edge Node (Production Release v1.1.0)
+# 🛡️ Dual ip GateWay Node (Production Release v1.1.0)
 ### Автоматизированный узел сетевой маскировки и туннелирования: OS Hardening + BBR + Nginx L4/L7 + 3X-UI + Xray v26.7.28 Pinned + VLESS xHTTP (Native H2C) + ML-KEM-768 + Multi-Port REALITY + Hysteria 2 + AWG v3/v2 + WireGuard Native + AdGuard Home DoH
 
 [![OS: Ubuntu & Debian](https://img.shields.io/badge/OS-Ubuntu%2022.04--26.04%20%7C%20Debian%2012--13-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](https://ubuntu.com)
