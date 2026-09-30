@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 #
 # ==============================================================================
-# Production AutoSetup Monoscript: Hardened Master Engine v1.1.0 Release
+# Production AutoSetup Monoscript: Hardened Master Engine v1.1.1 Release
+# Project: Dual ip GateWay Node (Universal Dual-IP Production Architecture)
 # OS Hardening + BBR + Nginx L4 Stream + 3X-UI + Zero-Touch (Production Release)
 # Xray v26.7.28 Pinned + Native H2C xHTTP + ML-KEM-768 + XTLS Vision + AGH DoH
 # Dual-IP Topology: Model 1 (TCP Web on IP#1 + Isolated UDP VPN on IP#2)
 # Strict Egress Isolation (sendThrough IP#1 for TCP Web | IP#2 for UDP Stack)
 # Multi-Tunnel UDP Engine: Hysteria 2 + AWG v3.1 + AWG v2.0 + Native WireGuard RFC
 # Pre-flight APT Sanitizer + Fail-Safe Nginx GPG Keyserver + Decoy Sphere Shield
+# Safe Readline Stream Isolation + Strict Port Validation & Fail-Safe Sanitizer
 # ==============================================================================
 # Совместимость: Ubuntu 22.04 / 24.04 / 26.04 & Debian 12 / 13
 # Режимы: Чистая установка (Clean Install) & Безопасное обновление (Safe Migration)
@@ -42,7 +44,7 @@ trap 'die "Скрипт аварийно прерван на строке $LINEN
 
 clear 2>/dev/null || true
 echo -e "${CYAN}=====================================================================${NC}"
-echo -e "${GREEN}  Hardened Master Engine v1.1.0 Release (Production Dual-IP Engine)    ${NC}"
+echo -e "${GREEN}  Dual ip GateWay Node v1.1.1 Release (Production Dual-IP Engine)     ${NC}"
 echo -e "${CYAN}  Dual-Mode: Clean Setup / Safe Migration + Nginx L4 Native + 3X-UI  ${NC}"
 echo -e "${WHITE}  Dual-IP Model 1: Ingress Clean Web (IP1) + Isolated UDP VPN (IP2)  ${NC}"
 echo -e "${WHITE}  Egress Policy: Strict sendThrough (TCP -> IP#1 | UDP Stack -> IP#2)${NC}"
@@ -126,13 +128,32 @@ if [ -z "$SSH_ACTIVE_PORT" ] || ! validate_port "$SSH_ACTIVE_PORT"; then
 fi
 SSH_ACTIVE_PORT="${SSH_ACTIVE_PORT:-22}"
 
+# Защищенный ввод без использования read -p во избежание бага эхо Readline с UTF-8
 prompt_default() {
     local prompt_text="$1"
     local default_val="$2"
     local var_name="$3"
     local input_val
-    read -rp "$(echo -e "${prompt_text} [${GREEN}${default_val}${NC}]: ")" input_val
+    echo -en "${prompt_text} [${GREEN}${default_val}${NC}]: "
+    read -r input_val
     declare -g "$var_name=${input_val:-$default_val}"
+}
+
+# Строгая валидация числовых портов
+prompt_port() {
+    local prompt_text="$1"
+    local default_val="$2"
+    local var_name="$3"
+    local p_val
+    while true; do
+        prompt_default "$prompt_text" "$default_val" p_val
+        p_val=$(echo "$p_val" | tr -d '[:space:]')
+        if validate_port "$p_val"; then
+            declare -g "$var_name=$p_val"
+            break
+        fi
+        warn "Недопустимый номер порта: '$p_val'. Введите целое число от 22 до 65535."
+    done
 }
 
 prompt_yes_no() {
@@ -141,10 +162,12 @@ prompt_yes_no() {
     local ans
     while true; do
         if [ "$default_ans" = "y" ]; then
-            read -rp "$(echo -e "${prompt_text} [${GREEN}Y/n${NC}]: ")" ans
+            echo -en "${prompt_text} [${GREEN}Y/n${NC}]: "
+            read -r ans
             ans="${ans:-y}"
         else
-            read -rp "$(echo -e "${prompt_text} [${YELLOW}y/N${NC}]: ")" ans
+            echo -en "${prompt_text} [${YELLOW}y/N${NC}]: "
+            read -r ans
             ans="${ans:-n}"
         fi
         case "${ans,,}" in
@@ -379,7 +402,8 @@ else
 fi
 
 while true; do
-    read -rp "Введите контактный Email (для Let's Encrypt SSL): " LE_EMAIL
+    echo -en "Введите контактный Email (для Let's Encrypt SSL): "
+    read -r LE_EMAIL
     LE_EMAIL=$(echo "$LE_EMAIL" | tr -d '[:space:]')
     if [[ -z "$LE_EMAIL" ]] || [[ "$LE_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
         break
@@ -415,14 +439,7 @@ fi
 
 echo -e "Текущий активный порт SSH: ${GREEN}${SSH_ACTIVE_PORT}${NC}"
 if prompt_yes_no "Сменить порт SSH на нестандартный?" "n"; then
-    while true; do
-        read -rp "Введите новый порт SSH (1024-65535): " CUSTOM_SSH
-        if validate_port "$CUSTOM_SSH"; then
-            TARGET_SSH_PORT="$CUSTOM_SSH"
-            break
-        fi
-        warn "Недопустимый порт."
-    done
+    prompt_port "Введите новый порт SSH (1024-65535)" "2222" TARGET_SSH_PORT
 else
     TARGET_SSH_PORT="$SSH_ACTIVE_PORT"
 fi
@@ -472,13 +489,13 @@ if [ -n "$EXISTING_DB_PATH" ]; then
     DETECTED_SUB_PATH="${DETECTED_SUB_PATH%/}"
 fi
 
-prompt_default "Внутренний локальный порт панели 3X-UI" "${DETECTED_PANEL_PORT:-10443}" PANEL_PORT
+prompt_port "Внутренний локальный порт панели 3X-UI" "${DETECTED_PANEL_PORT:-10443}" PANEL_PORT
 prompt_default "Секретный URI-путь к веб-панели (без слэшей)" "${DETECTED_PANEL_PATH:-my-3x-panel}" RAW_PATH
 validate_path_segment "$RAW_PATH" "URI панели"
 PANEL_PATH="/${RAW_PATH#/}"
 PANEL_PATH="${PANEL_PATH%/}/"
 
-prompt_default "Внутренний порт сервера подписок 3X-UI" "${DETECTED_SUB_PORT:-55443}" SUB_PORT
+prompt_port "Внутренний порт сервера подписок 3X-UI" "${DETECTED_SUB_PORT:-55443}" SUB_PORT
 prompt_default "Секретный URI-путь подписок (без слэшей)" "${DETECTED_SUB_PATH:-my-post-key}" RAW_SUB_PATH
 validate_path_segment "$RAW_SUB_PATH" "URI подписок"
 SUB_PATH="/${RAW_SUB_PATH#/}"
@@ -487,7 +504,7 @@ SUB_PATH="${SUB_PATH%/}/"
 SUB_JSON_PATH="${SUB_PATH}sub-json/"
 SUB_CLASH_PATH="/sub-clash/"
 
-prompt_default "Внутренний порт инбаунда VLESS xHTTP (Native H2 Stream-One)" "50443" XHTTP_STREAM_PORT
+prompt_port "Внутренний порт инбаунда VLESS xHTTP (Native H2 Stream-One)" "50443" XHTTP_STREAM_PORT
 prompt_default "Секретный URI-путь для xHTTP" "Stream-One-Path" RAW_XHTTP_STREAM_PATH
 validate_path_segment "$RAW_XHTTP_STREAM_PATH" "URI xHTTP"
 XHTTP_STREAM_PATH="/${RAW_XHTTP_STREAM_PATH#/}"
@@ -515,11 +532,7 @@ fi
 declare -A STEAL_PORT_DOMAINS
 if [ "$ENABLE_STEAL" -eq 1 ]; then
     while true; do
-        prompt_default "  Локальный порт Xray для Steal-Oneself" "45443" PORT_VAL
-        while [[ ! "$PORT_VAL" =~ ^[0-9]+$ ]] || [ "$PORT_VAL" -le 0 ] || [ "$PORT_VAL" -gt 65535 ]; do
-            warn "  Некорректный номер порта."
-            prompt_default "  Локальный порт Xray для Steal-Oneself" "45443" PORT_VAL
-        done
+        prompt_port "  Локальный порт Xray для Steal-Oneself" "45443" PORT_VAL
 
         if [[ ! " ${STEAL_PORTS_LIST[*]:-} " == *" ${PORT_VAL} "* ]]; then
             STEAL_PORTS_LIST+=("$PORT_VAL")
@@ -535,7 +548,8 @@ if [ "$ENABLE_STEAL" -eq 1 ]; then
             if [ -n "$local_def" ]; then
                 prompt_default "    Собственный поддомен для порта $PORT_VAL" "$local_def" S_DOM
             else
-                read -rp "    Собственный поддомен для порта $PORT_VAL (Enter для завершения): " S_DOM
+                echo -en "    Собственный поддомен для порта $PORT_VAL (Enter для завершения): "
+                read -r S_DOM
             fi
             S_DOM=$(echo "$S_DOM" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 
@@ -579,11 +593,7 @@ fi
 declare -A CLASSIC_PORT_SNIS
 if [ "$ENABLE_CLASSIC" -eq 1 ]; then
     while true; do
-        prompt_default "  Локальный порт Xray для Classic REALITY" "46443" PORT_VAL
-        while [[ ! "$PORT_VAL" =~ ^[0-9]+$ ]] || [ "$PORT_VAL" -le 0 ] || [ "$PORT_VAL" -gt 65535 ]; do
-            warn "  Некорректный номер порта."
-            prompt_default "  Локальный порт Xray для Classic REALITY" "46443" PORT_VAL
-        done
+        prompt_port "  Локальный порт Xray для Classic REALITY" "46443" PORT_VAL
 
         if [[ ! " ${CLASSIC_PORTS_LIST[*]:-} " == *" ${PORT_VAL} "* ]]; then
             CLASSIC_PORTS_LIST+=("$PORT_VAL")
@@ -600,7 +610,8 @@ if [ "$ENABLE_CLASSIC" -eq 1 ]; then
             if [ -n "$local_def" ]; then
                 prompt_default "    Внешний SNI маскировки" "$local_def" C_SNI
             else
-                read -rp "    Внешний SNI маскировки (Enter для завершения): " C_SNI
+                echo -en "    Внешний SNI маскировки (Enter для завершения): "
+                read -r C_SNI
             fi
             C_SNI=$(echo "$C_SNI" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 
@@ -632,7 +643,8 @@ fi
 echo
 echo -e "${WHITE}${BOLD}--- ШАГ 5: Дополнительные SSL-домены ---${NC}"
 while true; do
-    read -rp "Добавить собственный домен для выпуска SSL-сертификата? (Enter для завершения): " EXTRA_DOM
+    echo -en "Добавить собственный домен для выпуска SSL-сертификата? (Enter для завершения): "
+    read -r EXTRA_DOM
     EXTRA_DOM=$(echo "$EXTRA_DOM" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
     if [ -z "$EXTRA_DOM" ]; then
         break
@@ -659,7 +671,7 @@ fi
 
 ENABLE_HY2_HOP=0
 if [ "$ENABLE_HY2" -eq 1 ]; then
-    prompt_default "  Внешний UDP-порт для Hysteria 2 на IP №2" "443" HY2_PORT
+    prompt_port "  Внешний UDP-порт для Hysteria 2 на IP №2" "443" HY2_PORT
     echo -e "  ${WHITE}Режим работы портов Hysteria 2:${NC}"
     echo -e "    1) ${GREEN}Одиночный порт :${HY2_PORT}/udp на ${WAN_IP_UDP}${NC}"
     echo -e "    2) ${GREEN}Port Hopping :${HY2_PORT} + диапазон 20000-50000/udp на ${WAN_IP_UDP}${NC}"
@@ -679,7 +691,7 @@ else
     ENABLE_AWG_V3=0
 fi
 if [ "$ENABLE_AWG_V3" -eq 1 ]; then
-    prompt_default "  Внешний UDP-порт для AmneziaWG v3.1 на IP №2" "8443" AWG_V3_PORT
+    prompt_port "  Внешний UDP-порт для AmneziaWG v3.1 на IP №2" "8443" AWG_V3_PORT
 fi
 
 if prompt_yes_no "Установить AmneziaWG v2.0 / Legacy (UDP на IP №2)?" "y"; then
@@ -688,7 +700,7 @@ else
     ENABLE_AWG_V2=0
 fi
 if [ "$ENABLE_AWG_V2" -eq 1 ]; then
-    prompt_default "  Внешний UDP-порт для AmneziaWG v2.0 на IP №2" "8444" AWG_V2_PORT
+    prompt_port "  Внешний UDP-порт для AmneziaWG v2.0 на IP №2" "8444" AWG_V2_PORT
 fi
 
 if prompt_yes_no "Установить чистый Native WireGuard RFC (UDP на IP №2)?" "y"; then
@@ -697,7 +709,7 @@ else
     ENABLE_WG_NATIVE=0
 fi
 if [ "$ENABLE_WG_NATIVE" -eq 1 ]; then
-    prompt_default "  Внешний UDP-порт для WireGuard на IP №2" "47443" WG_NATIVE_PORT
+    prompt_port "  Внешний UDP-порт для WireGuard на IP №2" "47443" WG_NATIVE_PORT
 fi
 
 echo
@@ -1831,6 +1843,14 @@ if [ "$USE_OFFICIAL_NGINX_REPO" -eq 0 ] && [ -d /etc/nginx/modules-enabled ]; th
     MODULE_LOAD_LINE="include /etc/nginx/modules-enabled/*.conf;"
 fi
 
+# Fail-Safe санитайзер портов перед генерацией nginx.conf
+PANEL_PORT="${PANEL_PORT//[!0-9]/}"
+SUB_PORT="${SUB_PORT//[!0-9]/}"
+XHTTP_STREAM_PORT="${XHTTP_STREAM_PORT//[!0-9]/}"
+: "${PANEL_PORT:=10443}"
+: "${SUB_PORT:=55443}"
+: "${XHTTP_STREAM_PORT:=50443}"
+
 cat << EOF > /etc/nginx/nginx.conf
 user $NGINX_USER;
 worker_processes auto;
@@ -2573,7 +2593,7 @@ test_email = "Test"
 test_sub_id = "SUB_Test"
 test_uuid = str(uuid.uuid4())
 test_password = secrets.token_hex(8)
-test_auth = test_password  # Синхронизация auth == password во избежание сбоев Hysteria 2
+test_auth = test_password
 reality_hex_sid = secrets.token_hex(8)
 
 def_r_priv, def_r_pub = gen_reality_keypair()
@@ -2947,7 +2967,6 @@ if install_mode == "1":
         alpn_str = json.dumps(["h2"])
         add_host_entry(group_xhttp_uuid, ib3_id, "xHTTP_H2", domain, 443, "tls", sni=domain, path=xhttp_path, alpn=alpn_str, fp="firefox", sort_order=2)
 elif install_mode == "2":
-    # Санитарная очистка в режиме миграции: удаление паразитных переопределений хоста для UDP
     cur.execute("DELETE FROM hosts WHERE inbound_id IN (SELECT id FROM inbounds WHERE protocol IN ('hysteria', 'amneziawg', 'wireguard'))")
     if ib3_id is not None:
         cur.execute("UPDATE hosts SET path = ? WHERE inbound_id = ?", (xhttp_path, ib3_id))
@@ -3145,7 +3164,7 @@ fi
 CRED_FILE="/root/vpn_credentials.txt"
 cat << EOF > "$CRED_FILE"
 =====================================================================
-  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Monoscript v1.1.0 Release Dual-IP)
+  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Dual ip GateWay Node v1.1.1 Release)
   ОС: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
   Ядро Xray-core: ${DETECTED_XRAY_VER} (Pinned)
   Топология IP:   Модель 1 (Web Ingress: $WAN_IP_WEB | UDP VPN: $WAN_IP_UDP)
@@ -3202,7 +3221,7 @@ chmod 600 "$CRED_FILE"
 
 echo
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В ТОПОЛОГИИ DUAL-IP (v1.1.0)!           ${NC}"
+echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В ТОПОЛОГИИ DUAL-IP (v1.1.1)!           ${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
 echo -e "  Панель управления 3X-UI:     ${CYAN}https://${PRIMARY_DOMAIN}${PANEL_PATH}${NC}"
 if [ "$INSTALL_MODE" = "1" ]; then
@@ -3230,7 +3249,7 @@ fi
 echo -e "  ${WHITE}IP №1 (Clean Ingress/Egress):${NC}  ${GREEN}${WAN_IP_WEB}${NC} (Nginx, xHTTP, REALITY)"
 echo -e "  ${WHITE}IP №2 (Isolated UDP Stack):${NC}    ${GREEN}${WAN_IP_UDP}${NC} (Hysteria 2, WireGuard, AWG)"
 echo -e "  ${WHITE}MSS Clamping:${NC}                  ${GREEN}AWG: 1320 | WireGuard: 1380${NC}"
-echo -e "  ${WHITE}Сайт-маскировка:${NC}               ${GREEN}DataSphere Enterprise (Decoy Sphere)${NC}"
+echo -e "  ${WHITE}Сайт-маскировка:${NC}             ${GREEN}DataSphere Enterprise (Decoy Sphere)${NC}"
 echo
 echo -e "  Все доступы сохранены в файл: ${CYAN}${CRED_FILE}${NC} (chmod 600)"
 echo -e "${YELLOW}---------------------------------------------------------------------${NC}"
