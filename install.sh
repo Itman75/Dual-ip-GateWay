@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # ==============================================================================
-# Production AutoSetup Monoscript: Hardened Master Engine v1.1.1 Release
+# Production AutoSetup Monoscript: Hardened Master Engine v1.1.2 Release
 # Project: Dual ip GateWay Node (Universal Dual-IP Production Architecture)
 # OS Hardening + BBR + Nginx L4 Stream + 3X-UI + Zero-Touch (Production Release)
 # Xray v26.7.28 Pinned + Native H2C xHTTP + ML-KEM-768 + XTLS Vision + AGH DoH
@@ -9,7 +9,7 @@
 # Strict Egress Isolation (sendThrough IP#1 for TCP Web | IP#2 for UDP Stack)
 # Multi-Tunnel UDP Engine: Hysteria 2 + AWG v3.1 + AWG v2.0 + Native WireGuard RFC
 # Pre-flight APT Sanitizer + Fail-Safe Nginx GPG Keyserver + Decoy Sphere Shield
-# Safe Readline Stream Isolation + Strict Port Validation & Fail-Safe Sanitizer
+# Safe Readline Stream Isolation + Self-Contained prompt_port + Nounset Hardening
 # ==============================================================================
 # Совместимость: Ubuntu 22.04 / 24.04 / 26.04 & Debian 12 / 13
 # Режимы: Чистая установка (Clean Install) & Безопасное обновление (Safe Migration)
@@ -44,7 +44,7 @@ trap 'die "Скрипт аварийно прерван на строке $LINEN
 
 clear 2>/dev/null || true
 echo -e "${CYAN}=====================================================================${NC}"
-echo -e "${GREEN}  Dual ip GateWay Node v1.1.1 Release (Production Dual-IP Engine)     ${NC}"
+echo -e "${GREEN}  Dual ip GateWay Node v1.1.2 Release (Production Dual-IP Engine)     ${NC}"
 echo -e "${CYAN}  Dual-Mode: Clean Setup / Safe Migration + Nginx L4 Native + 3X-UI  ${NC}"
 echo -e "${WHITE}  Dual-IP Model 1: Ingress Clean Web (IP1) + Isolated UDP VPN (IP2)  ${NC}"
 echo -e "${WHITE}  Egress Policy: Strict sendThrough (TCP -> IP#1 | UDP Stack -> IP#2)${NC}"
@@ -57,6 +57,21 @@ echo -e "${CYAN}================================================================
 if [ "$EUID" -ne 0 ]; then
   die "Пожалуйста, запустите установщик с правами суперпользователя root (через sudo)."
 fi
+
+# Предварительная инициализация опциональных параметров для защиты от nounset (set -u)
+LE_EMAIL=""
+TARGET_SSH_PORT="22"
+ROOT_PASSWORD=""
+NEW_USERNAME=""
+NEW_USER_PASS=""
+HY2_PORT="443"
+AWG_V3_PORT="8443"
+AWG_V2_PORT="8444"
+WG_NATIVE_PORT="47443"
+AGH_DOMAIN=""
+AGH_USER="admin"
+AGH_PASS=""
+AGH_CLIENT_ID=""
 
 # Pre-flight санитарная очистка остаточных файлов от незавершенных прошлых запусков
 rm -f /etc/apt/sources.list.d/nginx.list /etc/apt/preferences.d/99nginx /usr/share/keyrings/nginx-archive-keyring.gpg.tmp 2>/dev/null || true
@@ -102,11 +117,12 @@ apt-get install -y curl bc bind9-dnsutils iproute2 openssl gawk python3 python3-
 ok "Базовые утилиты готовы к работе."
 
 validate_port() {
-    [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 22 ] && [ "$1" -le 65535 ]
+    local p="${1:-}"
+    [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -ge 22 ] && [ "$p" -le 65535 ]
 }
 
 validate_ipv4() {
-    local ip="$1"
+    local ip="${1:-}"
     local rx='^([0-9]{1,3}\.){3}[0-9]{1,3}$'
     if [[ "$ip" =~ $rx ]]; then
         local IFS='.'
@@ -127,26 +143,30 @@ if [ -z "$SSH_ACTIVE_PORT" ] || ! validate_port "$SSH_ACTIVE_PORT"; then
     SSH_ACTIVE_PORT=$(ss -tlnp 2>/dev/null | grep -E 'sshd|ssh' | grep -vE '127\.0\.0\.1|::1' | awk '{print $4}' | awk -F: '{print $NF}' | grep -vE '^60[0-9]{2}$' | sort -n | tail -n1 || echo "")
 fi
 SSH_ACTIVE_PORT="${SSH_ACTIVE_PORT:-22}"
+TARGET_SSH_PORT="$SSH_ACTIVE_PORT"
 
-# Защищенный ввод без использования read -p во избежание бага эхо Readline с UTF-8
+# Защищенный ввод без передачи ANSI-эскейпов в read -p во избежание сбоев Readline
 prompt_default() {
     local prompt_text="$1"
     local default_val="$2"
     local var_name="$3"
-    local input_val
+    local input_val=""
     echo -en "${prompt_text} [${GREEN}${default_val}${NC}]: "
     read -r input_val
     declare -g "$var_name=${input_val:-$default_val}"
 }
 
-# Строгая валидация числовых портов
+# Автономный строгий валидатор числовых портов (защищён от nounset / set -u)
 prompt_port() {
     local prompt_text="$1"
     local default_val="$2"
     local var_name="$3"
-    local p_val
+    local input_val=""
+    local p_val=""
     while true; do
-        prompt_default "$prompt_text" "$default_val" p_val
+        echo -en "${prompt_text} [${GREEN}${default_val}${NC}]: "
+        read -r input_val
+        p_val="${input_val:-$default_val}"
         p_val=$(echo "$p_val" | tr -d '[:space:]')
         if validate_port "$p_val"; then
             declare -g "$var_name=$p_val"
@@ -159,7 +179,7 @@ prompt_port() {
 prompt_yes_no() {
     local prompt_text="$1"
     local default_ans="${2:-y}"
-    local ans
+    local ans=""
     while true; do
         if [ "$default_ans" = "y" ]; then
             echo -en "${prompt_text} [${GREEN}Y/n${NC}]: "
@@ -179,8 +199,8 @@ prompt_yes_no() {
 }
 
 validate_path_segment() {
-    local val="$1"
-    local name="$2"
+    local val="${1:-}"
+    local name="${2:-}"
     if [[ ! "$val" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
         die "Параметр $name ('$val') содержит недопустимые символы. Используйте латиницу, цифры, дефис и слэши."
     fi
@@ -445,7 +465,6 @@ else
 fi
 
 CHANGE_ROOT_PASS=0
-ROOT_PASSWORD=""
 if [ "$INSTALL_MODE" = "1" ]; then
     if prompt_yes_no "Сменить пароль root?" "n"; then
         CHANGE_ROOT_PASS=1
@@ -454,8 +473,6 @@ if [ "$INSTALL_MODE" = "1" ]; then
 fi
 
 CREATE_USER=0
-NEW_USERNAME=""
-NEW_USER_PASS=""
 if [ "$INSTALL_MODE" = "1" ]; then
     if prompt_yes_no "Создать непривилегированного пользователя с sudo?" "n"; then
         CREATE_USER=1
@@ -2814,7 +2831,7 @@ if os.environ.get("ENABLE_AWG_V2") == "1":
         "clients": [a2_client],
         "server": {
             "h1": "149419586", "h2": "878791997", "h3": "1251051976", "h4": "1657628296",
-            "jc": 4, "jmax": 160, "jmin": 50, "s1": 45, "s2": 60, "s3": 24, "s4": 16, "mtu": 1360,
+            "jc": 4, "jmin": 50, "jmax": 160, "s1": 45, "s2": 60, "s3": 24, "s4": 16, "mtu": 1360,
             "primaryDns": awg3_dns_prim, "secondaryDns": awg3_dns_sec,
             "privateKey": def_wg_s_priv, "publicKey": def_wg_s_pub,
             "subnetCidr": 24, "subnetIp": "10.8.2.0"
@@ -3156,15 +3173,15 @@ ok "Фаервол UFW настроен. Топология Dual-IP, MSS Clampin
 #  ФИНАЛ: СОХРАНЕНИЕ УЧЕТНЫХ ДАННЫХ И ДАШБОРД
 # =============================================================
 UDP_DEST_TARGET="${UDP_DOMAIN:-$WAN_IP_UDP}"
-HY2_REPORT_LINE="${UDP_DEST_TARGET}:${HY2_PORT}"
+HY2_REPORT_LINE="${UDP_DEST_TARGET}:${HY2_PORT:-443}"
 if [ "${ENABLE_HY2_HOP:-0}" -eq 1 ]; then
-    HY2_REPORT_LINE="${UDP_DEST_TARGET}:${HY2_PORT},20000-50000"
+    HY2_REPORT_LINE="${UDP_DEST_TARGET}:${HY2_PORT:-443},20000-50000"
 fi
 
 CRED_FILE="/root/vpn_credentials.txt"
 cat << EOF > "$CRED_FILE"
 =====================================================================
-  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Dual ip GateWay Node v1.1.1 Release)
+  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Dual ip GateWay Node v1.1.2 Release)
   ОС: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
   Ядро Xray-core: ${DETECTED_XRAY_VER} (Pinned)
   Топология IP:   Модель 1 (Web Ingress: $WAN_IP_WEB | UDP VPN: $WAN_IP_UDP)
@@ -3203,7 +3220,7 @@ $([ "${ENABLE_HY2:-0}" -eq 1 ] && echo "[ HYSTERIA 2 ]
 Подключение:           ${HY2_REPORT_LINE}
 ")
 $([ "${ENABLE_WG_NATIVE:-0}" -eq 1 ] && echo "[ NATIVE WIREGUARD RFC ]
-Порт / Хост:           ${UDP_DEST_TARGET}:${WG_NATIVE_PORT}
+Порт / Хост:           ${UDP_DEST_TARGET}:${WG_NATIVE_PORT:-47443}
 Конфиг файл (.conf):   /root/wireguard-client.conf
 MTU / Clamping:        MTU 1420 | MSS 1380
 ")
@@ -3221,7 +3238,7 @@ chmod 600 "$CRED_FILE"
 
 echo
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В ТОПОЛОГИИ DUAL-IP (v1.1.1)!           ${NC}"
+echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В ТОПОЛОГИИ DUAL-IP (v1.1.2)!           ${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
 echo -e "  Панель управления 3X-UI:     ${CYAN}https://${PRIMARY_DOMAIN}${PANEL_PATH}${NC}"
 if [ "$INSTALL_MODE" = "1" ]; then
