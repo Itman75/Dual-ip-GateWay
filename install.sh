@@ -1138,12 +1138,49 @@ if [ "$USE_OFFICIAL_NGINX_REPO" -eq 0 ]; then
     wait_for_apt_lock
     apt-get update -q
     wait_for_apt_lock
-    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx libnginx-mod-stream 2>/dev/null || apt-get install -y -q nginx
+    apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx libnginx-mod-stream 2>/dev/null || apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx
 else
     wait_for_apt_lock
     apt-get update -q
     wait_for_apt_lock
-    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx
+    apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx
+fi
+
+# Гарантированное восстановление mime.types при ручной очистке /etc/nginx
+if [ ! -s /etc/nginx/mime.types ]; then
+    mkdir -p /etc/nginx
+    cat << 'EOF_MIME' > /etc/nginx/mime.types
+types {
+    text/html                             html htm shtml;
+    text/css                              css;
+    text/xml                              xml;
+    image/gif                             gif;
+    image/jpeg                            jpeg jpg;
+    application/javascript                js;
+    application/atom+xml                  atom;
+    application/rss+xml                   rss;
+    text/mathml                           mml;
+    text/plain                            txt;
+    text/vnd.sun.j2me.app-descriptor      jad;
+    text/vnd.wap.wml                      wml;
+    text/x-component                      htc;
+    image/png                             png;
+    image/svg+xml                         svg svgz;
+    image/tiff                            tif tiff;
+    image/vnd.wap.wbmp                    wbmp;
+    image/webp                            webp;
+    image/x-icon                          ico;
+    image/x-jng                           jng;
+    image/x-ms-bmp                        bmp;
+    font/woff                             woff;
+    font/woff2                            woff2;
+    application/java-archive              jar war ear;
+    application/json                      json;
+    application/pdf                       pdf;
+    application/zip                       zip;
+    application/octet-stream              bin exe dll deb dmg iso img msi msp msm;
+}
+EOF_MIME
 fi
 
 NGINX_USER="nginx"
@@ -3505,24 +3542,29 @@ echo -e "${CYAN}================================================================
 UDP_DEST_TARGET="${UDP_DOMAIN:-$WAN_IP_UDP}"
 
 if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
-    log "Установка DKMS-модуля и инструментов AmneziaWG..."
+    log "Установка пакетов сборки и заголовков ядра..."
+    wait_for_apt_lock
+    apt-get install -y build-essential "linux-headers-$(uname -r)" linux-headers-amd64 linux-headers-generic git dkms wireguard-tools -q >/dev/null 2>&1 || true
+
+    AWG_INSTALLED=0
     if [ "$OS_ID" = "ubuntu" ]; then
         wait_for_apt_lock
         add-apt-repository -y ppa:amnezia/ppa >/dev/null 2>&1 || true
         wait_for_apt_lock
         apt-get update -q >/dev/null 2>&1 || true
         wait_for_apt_lock
-        apt-get install -y amneziawg-dkms amneziawg-tools -q >/dev/null 2>&1 || true
-    else
-        log "Сборка DKMS AmneziaWG для Debian ($OS_CODENAME)..."
-        wait_for_apt_lock
-        apt-get install -y build-essential "linux-headers-$(uname -r)" git dkms wireguard-tools -q >/dev/null 2>&1 || true
+        if apt-get install -y amneziawg-dkms amneziawg-tools -q >/dev/null 2>&1; then
+            AWG_INSTALLED=1
+            ok "DKMS-модуль AmneziaWG установлен из Launchpad PPA."
+        fi
+    fi
 
-        # Очистка предыдущих поврежденных состояний DKMS
+    # Fallback-сборка из исходников для Debian и Ubuntu 24.04+ (Noble)
+    if [ "$AWG_INSTALLED" -eq 0 ]; then
+        log "Сборка AmneziaWG DKMS и нативных утилит из исходного кода..."
         dkms remove amneziawg/1.0.0 --all 2>/dev/null || true
-        rm -rf /usr/src/amneziawg-1.0.0 /var/lib/dkms/amneziawg/1.0.0 /tmp/awg-kmod-src /tmp/awg-tools-src
+        rm -rf /usr/src/amneziawg-1.0.0 /var/lib/dkms/amneziawg/1.0.0 /tmp/awg-kmod-src /tmp/awg-tools-build
 
-        # 1. Сборка модуля ядра через нативный dkms-install из подкаталога src/
         git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kmod-src 2>/dev/null || true
         if [ -d "/tmp/awg-kmod-src/src" ]; then
             make -C /tmp/awg-kmod-src/src dkms-install >/dev/null 2>&1 || true
@@ -3532,12 +3574,11 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
             rm -rf /tmp/awg-kmod-src
         fi
 
-        # 2. Нативная компиляция утилит управления awg и awg-quick
-        git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools-src 2>/dev/null || true
-        if [ -d "/tmp/awg-tools-src/src" ]; then
-            make -C "/tmp/awg-tools-src/src" >/dev/null 2>&1 || true
-            make -C "/tmp/awg-tools-src/src" install >/dev/null 2>&1 || true
-            rm -rf "/tmp/awg-tools-src"
+        git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools-build 2>/dev/null || true
+        if [ -d "/tmp/awg-tools-build/src" ]; then
+            make -C "/tmp/awg-tools-build/src" >/dev/null 2>&1 || true
+            make -C "/tmp/awg-tools-build/src" install >/dev/null 2>&1 || true
+            rm -rf "/tmp/awg-tools-build"
         fi
 
         echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
@@ -4172,6 +4213,9 @@ ufw allow proto tcp to "$WAN_IP_WEB" port 443 comment 'HTTPS L4 Router IP1' >/de
 
 if [ "${ENABLE_HY2:-0}" -eq 1 ]; then
     ufw allow proto udp to "$WAN_IP_UDP" port "$HY2_PORT" comment 'Hysteria 2 IP2' >/dev/null 2>&1 || true
+    if [ "${ENABLE_HY2_HOP:-0}" -eq 1 ]; then
+        ufw allow proto udp to "$WAN_IP_UDP" port 20000:50000 comment 'Hysteria 2 Hopping IP2' >/dev/null 2>&1 || true
+    fi
 fi
 
 if [ "${ENABLE_AWG_V3:-0}" -eq 1 ]; then
