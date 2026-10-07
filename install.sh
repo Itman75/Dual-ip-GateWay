@@ -3516,38 +3516,36 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
     else
         log "Сборка DKMS AmneziaWG для Debian ($OS_CODENAME)..."
         wait_for_apt_lock
-        apt-get install -y "linux-headers-$(uname -r)" git dkms wireguard-tools -q >/dev/null 2>&1 || true
-        
-        AWG_BUILD_DIR="/usr/src/amneziawg-1.0.0"
-        if [ ! -d "$AWG_BUILD_DIR" ]; then
-            git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$AWG_BUILD_DIR" 2>/dev/null || true
-            if [ -d "$AWG_BUILD_DIR" ]; then
-                cat << 'EOF_DKMS' > "$AWG_BUILD_DIR/dkms.conf"
-PACKAGE_NAME="amneziawg"
-PACKAGE_VERSION="1.0.0"
-BUILT_MODULE_NAME[0]="amneziawg"
-DEST_MODULE_LOCATION[0]="/kernel/net"
-AUTOINSTALL="yes"
-EOF_DKMS
-                dkms add -m amneziawg -v 1.0.0 2>/dev/null || true
-                dkms build -m amneziawg -v 1.0.0 2>/dev/null || true
-                dkms install -m amneziawg -v 1.0.0 2>/dev/null || true
-            fi
+        apt-get install -y build-essential "linux-headers-$(uname -r)" git dkms wireguard-tools -q >/dev/null 2>&1 || true
+
+        # Очистка предыдущих поврежденных состояний DKMS
+        dkms remove amneziawg/1.0.0 --all 2>/dev/null || true
+        rm -rf /usr/src/amneziawg-1.0.0 /var/lib/dkms/amneziawg/1.0.0 /tmp/awg-kmod-src /tmp/awg-tools-src
+
+        # 1. Сборка модуля ядра через нативный dkms-install из подкаталога src/
+        git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kmod-src 2>/dev/null || true
+        if [ -d "/tmp/awg-kmod-src/src" ]; then
+            make -C /tmp/awg-kmod-src/src dkms-install >/dev/null 2>&1 || true
+            dkms add -m amneziawg -v 1.0.0 2>/dev/null || true
+            dkms build -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
+            dkms install -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
+            rm -rf /tmp/awg-kmod-src
         fi
 
-        TOOLS_BUILD_DIR="/tmp/awg-tools-build"
-        rm -rf "$TOOLS_BUILD_DIR"
-        git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git "$TOOLS_BUILD_DIR" 2>/dev/null || true
-        if [ -d "$TOOLS_BUILD_DIR/src" ]; then
-            make -C "$TOOLS_BUILD_DIR/src" >/dev/null 2>&1 || true
-            make -C "$TOOLS_BUILD_DIR/src" install >/dev/null 2>&1 || true
-            rm -rf "$TOOLS_BUILD_DIR"
+        # 2. Нативная компиляция утилит управления awg и awg-quick
+        git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools-src 2>/dev/null || true
+        if [ -d "/tmp/awg-tools-src/src" ]; then
+            make -C "/tmp/awg-tools-src/src" >/dev/null 2>&1 || true
+            make -C "/tmp/awg-tools-src/src" install >/dev/null 2>&1 || true
+            rm -rf "/tmp/awg-tools-src"
         fi
+
+        echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+        modprobe amneziawg 2>/dev/null || true
     fi
 
     if ! command -v awg >/dev/null 2>&1; then
-        ln -sf "$(command -v wg 2>/dev/null || echo '/usr/bin/wg')" /usr/local/bin/awg 2>/dev/null || true
-        ln -sf "$(command -v wg-quick 2>/dev/null || echo '/usr/bin/wg-quick')" /usr/local/bin/awg-quick 2>/dev/null || true
+        die "Критическая ошибка: утилита awg не была скомпилирована. Проверьте заголовки ядра!"
     fi
 
     mkdir -p /etc/amnezia/amneziawg
@@ -3636,8 +3634,11 @@ EOF
 
     systemctl stop awg-quick@awg0 2>/dev/null || true
     systemctl enable awg-quick@awg0 >/dev/null 2>&1 || true
-    systemctl restart awg-quick@awg0 || true
-    ok "Нативный сервер AmneziaWG активен на сокете :${NATIVE_AWG_PORT}/udp (awg0)."
+    if systemctl restart awg-quick@awg0; then
+        ok "Нативный сервер AmneziaWG активен на сокете ${UDP_DEST_TARGET}:${NATIVE_AWG_PORT}/udp (awg0)."
+    else
+        die "Критический сбой запуска awg-quick@awg0! Проверьте: journalctl -xeu awg-quick@awg0"
+    fi
 fi
 
 # =============================================================
