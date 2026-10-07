@@ -1,15 +1,16 @@
-# 🛡️ Dual IP GateWay Node (Production Release v3.3.2 (Ultra Enhanced Production Architecture)
-### Автоматизированный узел сетевой маскировки и туннелирования: OS Hardening + BBR + Nginx L4/L7 + 3X-UI + Xray v26.7.28 Pinned + VLESS xHTTP (Native H2C Stream-One) + ML-KEM-768 + Multi-Port REALITY + Stub 11443 + Zero-SNI Defense + Hysteria 2 + AWG v3.2/v2.0 (MTU 1280) + WireGuard Native + AdGuard Home DoH + Decoy Shield v3.14
+# 🛡️ Dual IP GateWay Node (Production Release v3.3.5 (Ultra Enhanced Production Architecture)
+### Автоматизированный узел сетевой маскировки и туннелирования: OS Hardening + BBR + Nginx L4/L7 + 3X-UI + Xray v26.7.28 Pinned + VLESS xHTTP (Native H2C Stream-One) + ML-KEM-768 + Multi-Port REALITY + Stub 11443 + Zero-SNI Defense + Hysteria 2 + AWG v3.2/v2.0 (MTU 1360 Golden) + Native Kernel AmneziaWG (awg0 Bare-Metal) + 3X WireGuard + AdGuard Home DoH + Stealth SSO Hub v3.14
 
 [![OS: Ubuntu & Debian](https://img.shields.io/badge/OS-Ubuntu%2022.04--26.04%20%7C%20Debian%2012--13-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](https://ubuntu.com)
 [![Xray Core](https://img.shields.io/badge/Xray--core-v26.7.28%20Pinned-2962FF?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/XTLS/Xray-core)
 [![3X-UI](https://img.shields.io/badge/Panel-3X--UI%20Enterprise-009688?style=for-the-badge&logo=awesomelists&logoColor=white)](https://github.com/mhsanaei/3x-ui)
+[![Kernel: AmneziaWG DKMS](https://img.shields.io/badge/Kernel-AmneziaWG%20awg0%20Bare--Metal-FF6F00?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module)
 [![Security: Ultra Hardened](https://img.shields.io/badge/Security-ML--KEM--768%20%7C%20Zero--SNI%20%7C%20Dual--IP%20Isolation-4CAF50?style=for-the-badge&logo=auth0&logoColor=white)](LICENSE)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 <p align="center">
   <b>Высокопроизводительный инженерный комплекс для развёртывания сетевой инфраструктуры обхода блокировок уровня Enterprise.</b><br>
-  Реализует топологию Dual-IP Model 1 (полное физическое и логическое разделение чистого веб-трафика и изолированного UDP VPN стека), постквантовую криптографию ML-KEM-768, аппаратный L4-роутинг Nginx Mainline, защиту от активного сканирования Zero-SNI Shield, выделенный Stub 11443 для Steal-Oneself, оптимизированный стек AmneziaWG (MTU 1280) и полноценную интерактивную веб-маскировку DataSphere Analytics v3.14.
+  Реализует топологию Dual-IP Model 1 (полное физическое и логическое разделение чистого веб-трафика и изолированного UDP VPN стека), нативный сервер AmneziaWG (Bare-Metal DKMS awg0), постквантовую криптографию ML-KEM-768, аппаратный L4-роутинг Nginx Mainline, защиту от активного сканирования Zero-SNI Shield, выделенный Stub 11443 для Steal-Oneself и интерактивную веб-маскировку DataSphere Analytics v3.14 со встроенным Zero-Leak SSO шлюзом.
 </p>
 
 ---
@@ -20,8 +21,8 @@
 2. [Ключевые функциональные и защитные возможности](#-ключевые-функциональные-и-защитные-возможности)
 3. [Системные требования и быстрый старт](#-системные-требования-и-быстрый-старт)
 4. [Параметры мастера установки](#-параметры-мастера-установки)
-5. [Боевые конфигурации инбаундов Xray-core](#-боевые-конфигурации-инбаундов-xray-core)
-6. [Подписки и клиентская экосистема](#-подписки-и-клиентская-экосистема)
+5. [Боевые конфигурации инбаундов Xray-core и ядра awg0](#-боевые-конфигурации-инбаундов-xray-core-и-ядра-awg0)
+6. [Подписки, Stealth SSO Hub и клиентская экосистема](#-подписки-stealth-sso-hub-и-клиентская-экосистема)
 7. [Приватный DNS AdGuard Home (DoH)](#-приватный-dns-adguard-home-doh)
 8. [Инженерный аудит и диагностика](#-инженерный-аудит-и-диагностика)
 9. [Резервное копирование и откат](#-резервное-копирование-и-откат)
@@ -34,19 +35,19 @@
 Архитектура узла гарантирует нулевую корреляцию между чистым трафиком веб-ресурсов и высоконагруженными VPN-туннелями:
 
 * **IP №1 (Web / TCP Ingress & Egress):**
-  * Принимает исключительно TCP-трафик на порты `:80` (ACME + Hardened Drop) и `:443` (Nginx L4 Stream Router).
-  * Обслуживает маскировочный портал DataSphere Analytics Enterprise v3.14, изолированную веб-панель 3X-UI, сервер выдачи подписок, протоколы VLESS REALITY и VLESS xHTTP.
+  * Принимает исключительно TCP-трафик на порты `:80` (ACME + Hardened 444 Drop) и `:443` (Nginx L4 Stream Router).
+  * Обслуживает маскировочный портал DataSphere Analytics Enterprise v3.14, скрытый In-Memory SSO шлюз администратора (`datasphere-core` на `:20443`), изолированную веб-панель 3X-UI (`:10443`), сервер выдачи подписок (`:55443`), протоколы VLESS REALITY и VLESS xHTTP (`:50443`).
   * Исходящий трафик веб-протоколов принудительно фиксируется ядром Xray через директиву `sendThrough: IP#1` (outbound `direct`). Внешние веб-серверы фиксируют только IP №1.
 * **IP №2 (Isolated UDP VPN Stack Ingress & Egress):**
-  * Обслуживает туннельные протоколы Hysteria 2 (порт `:443/udp` + Port Hopping `20000-50000/udp`), AmneziaWG v3.2 (порт `:8443/udp`), AmneziaWG v2.0 Legacy (порт `:8444/udp`) и Native WireGuard RFC (порт `:47443/udp`).
+  * Обслуживает туннельные протоколы Hysteria 2 (порт `:443/udp` + Port Hopping `20000-50000/udp`), AmneziaWG v3.2 (порт `:8443/udp`), AmneziaWG v2.0 Legacy (порт `:8444/udp`), 3X WireGuard RFC (порт `:47443/udp`) и **нативный сервер ядра Linux AmneziaWG `awg0`** (порт `:51820/udp`).
   * TCP-порты `:80` и `:443` на IP №2 полностью закрыты на уровне UFW — сканирование по TCP не выявляет веб-сервисов и TLS-сертификатов.
-  * Исходящий трафик Hysteria 2 маршрутизируется ядром Xray через шлюз `direct-udp` (`sendThrough: IP#2`).
-  * Исходящий трафик подсетей AmneziaWG (`10.8.1.0/24`, `10.8.2.0/24`) и WireGuard (`10.8.3.0/24`) транслируется на уровне ядра Linux строго через `SNAT --to-source IP#2`.
+  * Исходящий трафик всех UDP-инбаундов Xray (`in-hysteria2`, `in-8443-udp`, `in-awg-v2-legacy`, `in-wireguard-native`) маршрутизируется правилом `route-all-udp-vpn-to-udp-ip` строго через шлюз `direct-udp` (`sendThrough: IP#2`).
+  * Исходящий трафик подсетей AmneziaWG 3X-UI (`10.8.1.0/24`, `10.8.2.0/24`), 3X WireGuard (`10.8.3.0/24`) и ядерного интерфейса `awg0` (`10.9.0.0/24`) транслируется на уровне ядра Linux строго через `SNAT --to-source IP#2` с принудительным ограничением размера сегмента TCP MSS Clamping (`1320` для AWG и `1380` для WireGuard).
 
 ```mermaid
 flowchart TD
-    ClientWeb["Клиент: Web/TCP (REALITY, xHTTP, ACME)"] -->|TCP 80 / 443| IngressIP1["IP №1: Nginx L4 Stream Router"]
-    ClientUDP["Клиент: UDP (Hy2, AWG, WireGuard)"] -->|UDP 443 / 8443 / 8444 / 47443| IngressIP2["IP №2: UFW Netfilter Engine"]
+    ClientWeb["Клиент: Web/TCP (REALITY, xHTTP, ACME, SSO)"] -->|TCP 80 / 443| IngressIP1["IP №1: Nginx L4 Stream Router"]
+    ClientUDP["Клиент: UDP (Hy2, AWG v3/v2, 3X WG, Kernel awg0)"] -->|UDP 443 / 8443 / 8444 / 47443 / 51820| IngressIP2["IP №2: UFW Netfilter Engine"]
 
     subgraph SG_IP1 ["Контур IP №1: Web Ingress & Egress"]
         direction TB
@@ -61,9 +62,10 @@ flowchart TD
         XrayClassic -->|"Target / xver=0"| ExtSNI["Внешний узел :443"]
         
         SockRAM -->|"Прямой IP / Чужой SNI"| ZeroSNI["Zero-SNI Defense: ssl_reject_handshake"]
-        SockRAM -->|"Валидный SNI: domain"| NginxL7["Nginx L7 WAF Shield v6.0.4"]
+        SockRAM -->|"Валидный SNI: domain"| NginxL7["Nginx L7 WAF Shield v6.0.5"]
         
         NginxL7 -->|"URI: / (Decoy SPA)"| DecoySite["DataSphere Analytics Enterprise v3.14"]
+        NginxL7 -->|"URI: /api/v1/datasphere/"| DSCore["DataSphere Core SSO & awg0 Daemon :20443"]
         NginxL7 -->|"URI: /panel/ (Vue WebSockets)"| PanelUI["3X-UI Панель :10443"]
         NginxL7 -->|"URI: /sub/ (Sub Server)"| SubServer["Сервер подписок :55443"]
         NginxL7 -->|"URI: /xhttp-stream/ (Strict POST)"| XrayXHTTP["Xray VLESS xHTTP :50443"]
@@ -75,12 +77,13 @@ flowchart TD
     subgraph SG_IP2 ["Контур IP №2: Isolated UDP Stack"]
         direction TB
         IngressIP2 -->|"Port Hopping 20000-50000 -> 443"| XrayHy2["Hysteria 2 UDP :443"]
-        IngressIP2 -->|"UDP 8443 (MTU 1280 / Jmax 50)"| AWG3["AmneziaWG v3.2 (10.8.1.0/24)"]
-        IngressIP2 -->|"UDP 8444 (MTU 1280 / Jmax 50)"| AWG2["AmneziaWG v2.0 (10.8.2.0/24)"]
-        IngressIP2 -->|"UDP 47443 (MTU 1420 / MSS 1380)"| WGRFC["Native WireGuard RFC (10.8.3.0/24)"]
+        IngressIP2 -->|"UDP 8443 (MTU 1360 / MSS 1320)"| AWG3["AmneziaWG v3.2 (10.8.1.0/24)"]
+        IngressIP2 -->|"UDP 8444 (MTU 1360 / MSS 1320)"| AWG2["AmneziaWG v2.0 (10.8.2.0/24)"]
+        IngressIP2 -->|"UDP 47443 (MTU 1420 / MSS 1380)"| WGRFC["3X WireGuard RFC (10.8.3.0/24)"]
+        IngressIP2 -->|"UDP 51820 (Kernel DKMS / MTU 1360)"| AWGNative["Native Kernel AmneziaWG awg0 (10.9.0.0/24)"]
         
-        XrayHy2 -->|"Правило: route-hy2-to-udp-ip"| EgressHy2["Egress Шлюз: sendThrough IP №2"]
-        AWG3 & AWG2 & WGRFC -->|"UFW SNAT --to-source IP №2"| EgressKernel["Ядро Linux: SNAT IP №2"]
+        XrayHy2 & AWG3 & AWG2 & WGRFC -->|"Правило: route-all-udp-vpn-to-udp-ip"| EgressHy2["Egress Шлюз: sendThrough IP №2"]
+        AWG3 & AWG2 & WGRFC & AWGNative -->|"UFW SNAT --to-source IP №2 + MSS Clamp"| EgressKernel["Ядро Linux: SNAT IP №2"]
     end
 
     EgressIP1 --> InternetWeb["Интернет (Внешний IP: IP №1)"]
@@ -91,8 +94,16 @@ flowchart TD
 
 ## ⚙️ Ключевые функциональные и защитные возможности
 
+* **Нативный сервер ядра Linux AmneziaWG (Bare-Metal DKMS `awg0`):**  
+  В дополнение к userspace-инбаундам Xray развёртывается ядерный сетевой интерфейс `awg0` (подсеть `10.9.0.0/24`, порт `:51820/udp` на IP №2) с автоматической компиляцией DKMS-модуля из PPA или исходного кода. Обеспечивает минимальный оверхед CPU и аппаратную обработку пакетов на скоростях до 10 Гбит/с.
+* **Стандарт фрагментации AmneziaWG Golden Standard (MTU 1360 / MSS 1320):**  
+  Все контуры AmneziaWG (`awg0`, AWG v3.2, AWG v2.0) откалиброваны по профилю `MTU 1360`, `TCPMSS 1320`, `Jc 4`, `Jmin 40`, `Jmax 70`, `S1 64`, `S2 56`, `S3 32`, `S4 16`, `contentPaddingAddition: "0"`, `disableCookies: true`, `randomTrailers: false`. Это полностью исключает эффект PMTUD Blackhole и зависание сессий в сетях мобильных операторов с принудительным DPI-шейпингом.
+* **Stealth SSO Hub & Zero-Leak Frontend (`datasphere-core.py`):**  
+  * Встроенный демон на `127.0.0.1:20443` проверяет учётные данные администратора по базе SQLite 3X-UI с использованием `bcrypt` и константного по времени сравнения `hmac.compare_digest`.
+  * До успешной авторизации (`200 OK`) в DOM-дереве браузера отсутствуют ссылки на административные панели, пути подписок и упоминания VPN-протоколов.
+  * После входа прямо в модальном окне DataSphere формируется In-Memory Hub: быстрый переход в 3X-UI, AdGuard Home и **интерактивная панель управления ядерным сервером `awg0`** (создание и удаление пиров на лету, генерация QR-кодов в формате SVG через `qrencode`, скачивание готовых `.conf` файлов, мониторинг онлайна и трафика RX/TX).
 * **Zero-SNI Defense (`ssl_reject_handshake on`):**  
-  Дефолтный сервер на unix-сокете и резервном порту `:9443` прерывает рукопожатие TLS на корню при обращении напрямую по IP-адресу или с невалидным SNI. Сканеры (Censys, Shodan, Masscan) не могут извлечь сертификат сервера.
+  Дефолтный сервер на unix-сокете и резервном порту `:9443` прерывает рукопожатие TLS на корню при обращении напрямую по IP-адресу или с невалидным SNI. Сканеры (Censys, Shodan, Masscan, ZGrab2) не могут извлечь сертификат сервера.
 * **Изолированный Stub 11443 для Steal-Oneself:**  
   Инбаунд Steal-Oneself передает fallback-трафик на специализированный виртуальный сервер `127.0.0.1:11443` с заголовком PROXY protocol v1 (`xver: 1`) и поддержкой HTTP/2, немедленно отдающий `404 Not Found`. Это исключает циклическую переадресацию и сбои сопоставления ALPN.
 * **Порт 80 Hardened Drop (`return 444`):**  
@@ -102,25 +113,18 @@ flowchart TD
   * Жесткая изоляция метода: доступ к пути стрима открыт строго для `POST`-запросов, любые `GET`-запросы получают `404`.
   * Интеграция постквантового алгоритма согласования ключей ML-KEM-768 (Kyber768) через `vlessenc`.
   * Рандомизированный паддинг `xPaddingBytes: 120-1120`, маскировка под AWS через `X-Amz-Meta-Trace` и мультиплексирование сессий `enableXmux: true`.
-* **Оптимизация AmneziaWG (MTU 1280 / Zero PMTUD Blackhole):**  
-  Параметры инбаундов приведены к стандарту `MTU 1280`, `Jc 3`, `Jmin 50`, `Jmax 50`, `contentPaddingAddition: "0"`, `disableCookies: true`, `randomTrailers: false`. Это полностью устраняет фрагментацию пакетов и зависание сессий в мобильных сетях.
-* **Матрица безопасности WAF v6.0.4 Hardened:**  
-  Двухуровневая система карт Nginx `$badbot_raw` и `$is_scan_attempt` блокирует сканеры (Nuclei, Gobuster, SQLmap, Nmap), агрессивные AI-краулеры (GPTBot, ClaudeBot, Perplexity, CCBot) и попытки path traversal к чувствительным файлам (`.env`, `.git`, `.aws`).
-* **Интерактивный комплекс маскировки DataSphere Decoy v3.14:**  
-  * Семантическая SPA-разметка корпоративной аналитической платформы распределенных данных.
-  * Динамическая телеметрия ядра, функционирующая строго на базе нативного Web Cryptography API (`crypto.getRandomValues`).
-  * Раздельный зональный CSP: нулевой `'unsafe-inline'` на основном сайте; совместимый профиль WebSockets/Vue на панели; разрешение `'unsafe-inline'` на путях подписок для корректного исполнения `window.__SUB_PAGE_DATA__`.
-  * REST API заглушки: статус кластера `/api/v1/datasphere/status` (200 OK) и консоль узла `/api/v1/datasphere/auth` (константный 401 Unauthorized).
+* **Матрица безопасности WAF v6.0.5 Hardened & Zero-Log Policy:**  
+  * Двухуровневая система карт Nginx `$badbot_raw` и `$is_scan_attempt` блокирует сканеры (Nuclei, Gobuster, SQLmap, Nmap, Feroxbuster, Katana), агрессивные AI-краулеры (GPTBot, ClaudeBot, Perplexity, CCBot, Bytespider-ai) и попытки path traversal к чувствительным файлам (`.env`, `.git`, `.config`).
+  * Журналирование `systemd-journald` переведено в энергонезависимую память (`Storage=volatile`, лимит `64M`), а клиентские логи доступа Nginx и Xray полностью отключены (`access_log off`, `"access": "none"`).
 * **Синхронизация схемы ALPN в базе SQLite (3X-UI Zod Fix):**  
-  Встроенный пре-миграционный скрипт Python нормализует записи `externalProxy.alpn` во всех таблицах SQLite, приводя их из строк к строгим JSON-массивам `["h2"]` / `["h3"]`, что предотвращает критические сбои Zod-валидатора в современных версиях панели.
-* **Атомарная блокировка процесса и безопасность Bash:**  
-  Моноскрипт защищен атомарным захватом `flock` на файловом дескрипторе 200, функцией ожидания снятия системных локов пакетов `wait_for_apt_lock()` и ловушкой `cleanup $LINENO`.
+  Встроенный пре-миграционный скрипт Python нормализует записи `externalProxy.alpn` во всех таблицах SQLite, приводя их из строк к строгим JSON-массивам `["h2"]` / `["h3"]`, и автоматически обновляет параметры существующих инбаундов AmneziaWG до стандарта MTU 1360.
 
 ---
 
 ## 🚀 Системные требования и быстрый старт
 
 ### Требования к серверу:
+* **Виртуализация:** KVM / Bare-Metal (для сборки ядерного модуля DKMS `awg0`; в средах LXC/OpenVZ нативный модуль автоматически отключается с сохранением работоспособности остального стека).
 * **Архитектура:** x86_64 (amd64) или ARM64 (aarch64).
 * **ОС:** Ubuntu 22.04 / 24.04 / 26.04 LTS или Debian 12 / 13.
 * **Ресурсы:** Минимум 1 vCPU, 1 ГБ RAM (при 512 МБ требуется swap), 10 ГБ на SSD/NVMe.
@@ -143,7 +147,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Itman75/Dual-ip-GateWay/main
 Резервный запуск через `wget`:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWay/main/install.sh | bash
 ```
 
 ---
@@ -152,27 +156,28 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
 
 | Этап | Параметр | Значение по умолчанию | Описание назначения |
 | :--- | :--- | :--- | :--- |
-| **Режим** | Режим работы | `2` (при наличии БД) | `1` — Clean Install (сброс базы, новые ключи, генерация профиля Test); `2` — Safe Migration (100% сохранение клиентов, ключей, UUID, горячий бэкап `.tar.gz` и авто-патч схемы ALPN). |
-| **0** | IP №1 (Web/TCP) | Автоопределение | Публичный IPv4 для Nginx L4/L7, VLESS REALITY, VLESS xHTTP, ACME и панели 3X-UI. |
-| **0** | IP №2 (UDP VPN) | Автоопределение | Публичный IPv4 для Hysteria 2, AmneziaWG v3.2, AmneziaWG v2.0 и Native WireGuard RFC. |
+| **Режим** | Режим работы | `2` (при наличии БД) | `1` — Clean Install (сброс базы, новые ключи, генерация профиля Test); `2` — Safe Migration (100% сохранение клиентов, ключей, UUID, горячий бэкап `.tar.gz`, авто-патч схемы ALPN и MTU 1360). |
+| **0** | IP №1 (Web/TCP) | Автоопределение | Публичный IPv4 для Nginx L4/L7, VLESS REALITY, VLESS xHTTP, ACME, SSO Hub и панели 3X-UI. |
+| **0** | IP №2 (UDP VPN) | Автоопределение | Публичный IPv4 для Hysteria 2, AmneziaWG v3.2/v2.0, 3X WireGuard и нативного ядра `awg0`. |
 | **0** | Гео-профиль | Автоопределение (RU/EU)| Оптимизация резолверов (Яндекс DNS 77.88.8.8 vs Cloudflare 1.1.1.1) и CDN-зеркал загрузки бинарников. |
 | **1** | Доменная зона | — | Основной домен (A-запись на IP №1) и поддомен UDP (A-запись на IP №2). |
-| **2** | Системный Hardening | `y` | TCP BBR, Somaxconn 65535, Loose `rp_filter = 2`, `ip_nonlocal_bind = 1`, отключение IPv6. |
+| **2** | Системный Hardening | `y` | TCP BBR, Somaxconn 65535, Loose `rp_filter = 2`, `ip_nonlocal_bind = 1`, `Storage=volatile`, отключение IPv6. |
 | **2** | SSH-периметр | Текущий порт | Смена порта SSH, блокировка входа по паролю, генерация ключей Ed25519, интеграция с Fail2ban. |
 | **3** | Секретные пути | Случайные URI | Настройка закрытых URI для панели управления, сервера подписок и xHTTP-стрима. |
 | **4** | Матрица REALITY | `y` (`:45443` / `:46443`)| Привязка Steal-Oneself к поддоменам (Stub 11443) и Classic к внешним SNI с TLS 1.3 RTT-бенчмарком. |
-| **6** | UDP-туннели | `y` | Выбор активации Hysteria 2 (с Port Hopping), AmneziaWG v3.2, AmneziaWG v2.0 и WireGuard Native. |
+| **6** | UDP-туннели (3X-UI) | `y` | Выбор активации Hysteria 2 (с Port Hopping), AmneziaWG v3.2 (`:8443`), AmneziaWG v2.0 (`:8444`) и 3X WireGuard (`:47443`). |
+| **6.1** | Нативный AmneziaWG | `y` (`:51820/udp`) | Сборка и запуск ядерного модуля DKMS `awg0` (Bare-Metal на IP №2, подсеть `10.9.0.0/24`, MTU 1360 / MSS 1320). |
 | **7** | Приватный DoH | `y` (`dns.domain`)| Развёртывание AdGuard Home DoH со сплит-DNS и роутерной токенизацией `ClientID`. |
 
 > [!IMPORTANT]
 > **Обязательные действия после завершения установки:**  
 > 1. Откройте **новое отдельное окно терминала** и проверьте доступ к серверу по SSH на установленном порту.  
 > 2. В исходной консоли выполните команду: `reboot`.  
-> После перезагрузки сетевые параметры ядра, трансляция адресов в UFW и фоновые демоны инициализируются в целевом стабильном состоянии.
+> После перезагрузки сетевые параметры ядра, модуль `amneziawg`, трансляция адресов в UFW и фоновые демоны инициализируются в целевом стабильном состоянии.
 
 ---
 
-## 📄 Боевые конфигурации инбаундов Xray-core
+## 📄 Боевые конфигурации инбаундов Xray-core и ядра awg0
 
 <details>
 <summary><b>1. VLESS xHTTP Stream-One + ML-KEM-768 + XMUX + Vision (Порт :50443)</b></summary>
@@ -348,7 +353,7 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
 </details>
 
 <details>
-<summary><b>4. AmneziaWG v3.2 (Порт :8443 на IP №2, MTU 1280 / Jmax 50)</b></summary>
+<summary><b>4. AmneziaWG v3.2 в 3X-UI (Порт :8443 на IP №2, MTU 1360 Golden / MSS 1320)</b></summary>
 
 ```json
 {
@@ -371,14 +376,14 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
       "h2": "СЛУЧАЙНОЕ_ЧИСЛО_2",
       "h3": "СЛУЧАЙНОЕ_ЧИСЛО_3",
       "h4": "СЛУЧАЙНОЕ_ЧИСЛО_4",
-      "jc": 3,
-      "jmin": 50,
-      "jmax": 50,
-      "s1": 45,
-      "s2": 60,
-      "s3": 24,
+      "jc": 4,
+      "jmin": 40,
+      "jmax": 70,
+      "s1": 64,
+      "s2": 56,
+      "s3": 32,
       "s4": 16,
-      "mtu": 1280,
+      "mtu": 1360,
       "primaryDns": "77.88.8.8",
       "secondaryDns": "77.88.8.1",
       "privateKey": "СЕРВЕРНЫЙ_PRIVATE_KEY",
@@ -409,7 +414,7 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
 </details>
 
 <details>
-<summary><b>5. Native WireGuard RFC (Порт :47443 на IP №2, MTU 1420)</b></summary>
+<summary><b>5. 3X WireGuard RFC (Порт :47443 на IP №2, MTU 1420 / MSS 1380)</b></summary>
 
 ```json
 {
@@ -421,6 +426,7 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
     "secretKey": "СЕРВЕРНЫЙ_PRIVATE_KEY",
     "peers": [
       {
+        "privateKey": "КЛИЕНТСКИЙ_PRIVATE_KEY",
         "publicKey": "КЛИЕНТСКИЙ_PUBLIC_KEY",
         "allowedIPs": ["10.8.3.3/32"],
         "keepAlive": 25,
@@ -435,7 +441,7 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
       {
         "dest": "cdn2.yourdomain.online",
         "port": 47443,
-        "remark": "WireGuard Native"
+        "remark": "3X WireGuard"
       }
     ]
   }
@@ -444,7 +450,36 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
 </details>
 
 <details>
-<summary><b>6. Исходящая маршрутизация Dual-IP (Strict sendThrough)</b></summary>
+<summary><b>6. Нативный сервер ядра Linux AmneziaWG (awg0, Порт :51820 на IP №2, MTU 1360 Golden)</b></summary>
+
+Конфигурация серверного интерфейса `/etc/amnezia/amneziawg/awg0.conf`:
+```ini
+[Interface]
+Address = 10.9.0.1/24
+ListenPort = 51820
+PrivateKey = СЕРВЕРНЫЙ_PRIVATE_KEY
+MTU = 1360
+Jc = 4
+Jmin = 40
+Jmax = 70
+S1 = 64
+S2 = 56
+S3 = 32
+S4 = 16
+H1 = СЛУЧАЙНОЕ_ЧИСЛО_1
+H2 = СЛУЧАЙНОЕ_ЧИСЛО_2
+H3 = СЛУЧАЙНОЕ_ЧИСЛО_3
+H4 = СЛУЧАЙНОЕ_ЧИСЛО_4
+
+# --- Client: Test-Client ---
+[Peer]
+PublicKey = КЛИЕНТСКИЙ_PUBLIC_KEY
+AllowedIPs = 10.9.0.2/32
+```
+</details>
+
+<details>
+<summary><b>7. Исходящая маршрутизация Dual-IP (Strict sendThrough для всех UDP туннелей)</b></summary>
 
 ```json
 {
@@ -456,7 +491,7 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
       "settings": {
         "finalRules": [
           {"action": "allow", "ip": ["127.0.0.1"], "port": "53"},
-          {"action": "allow", "ip": ["10.8.1.0/24", "10.8.2.0/24", "10.8.3.0/24"]},
+          {"action": "allow", "ip": ["10.8.1.0/24", "10.8.2.0/24", "10.8.3.0/24", "10.9.0.0/24"]},
           {"action": "block", "ip": ["geoip:private"]},
           {"action": "allow"}
         ]
@@ -491,9 +526,8 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
     "rules": [
       {
         "type": "field",
-        "inboundTag": ["in-hysteria2"],
-        "outboundTag": "direct-udp",
-        "ruleTag": "route-hy2-to-udp-ip"
+        "inboundTag": ["api"],
+        "outboundTag": "api"
       },
       {
         "type": "field",
@@ -504,8 +538,14 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
       },
       {
         "type": "field",
-        "ip": ["10.8.1.0/24", "10.8.2.0/24", "10.8.3.0/24"],
+        "ip": ["10.8.1.0/24", "10.8.2.0/24", "10.8.3.0/24", "10.9.0.0/24"],
         "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["in-hysteria2", "in-8443-udp", "in-awg-v2-legacy", "in-wireguard-native"],
+        "outboundTag": "direct-udp",
+        "ruleTag": "route-all-udp-vpn-to-udp-ip"
       },
       {
         "type": "field",
@@ -525,11 +565,20 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
 
 ---
 
-## 📱 Подписки и клиентская экосистема
+## 📱 Подписки, Stealth SSO Hub и клиентская экосистема
 
-Служебные реквизиты доступа и клиентские ключи сохраняются в защищенном файле `/root/vpn_credentials.txt` (`chmod 600`).  
-В режиме чистой установки генерируются следующие мультипротокольные эндпоинты:
+Служебные реквизиты доступа и клиентские ключи сохраняются в защищенном файле `/root/vpn_credentials.txt` (`chmod 600`).
 
+### 1. Скрытый SSO Шлюз Администратора (Zero-Leak In-Memory Hub):
+* Откройте основной домен в браузере: `https://yourdomain.online/`
+* Нажмите кнопку **«Консоль»** в правом верхнем углу шапки сайта DataSphere Analytics.
+* Введите логин и пароль администратора панели 3X-UI.
+* После валидации учётных данных микросервисом `datasphere-core` прямо в памяти браузера откроется **DataSphere Infrastructure Hub** с тремя модулями:
+  1. **Авторизация Панели 3X-UI** — прямой переход на секретный URI панели управления.
+  2. **Нативный сервер AmneziaWG (`awg0`)** — интерактивный менеджер пиров ядра Linux (добавление новых клиентов, просмотр статуса Online/Offline, учёт трафика RX/TX, генерация QR-кодов и выгрузка `.conf` профилей).
+  3. **AdGuard Home DNS** — быстрый переход в веб-панель приватного DoH-сервера.
+
+### 2. Мультипротокольные эндпоинты и файлы конфигураций:
 * **Адаптивная подписка (Base64 / Web Dashboard):**  
   `https://yourdomain.online/my-post-key/SUB_Test`  
   *(При открытии браузером отдает интерфейс статистики с возможностью прямого копирования; при запросе клиентом — чистый Base64/YAML).*
@@ -537,28 +586,32 @@ wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.
   `https://yourdomain.online/my-post-key/sub-json/SUB_Test`
 * **Выделенная подписка Clash / Mihomo YAML:**  
   `https://yourdomain.online/sub-clash/SUB_Test`
-* **Конфигурация Native WireGuard RFC:**  
-  `/root/wireguard-client.conf` (MTU 1420 / MSS 1380).
+* **Конфигурация нативного AmneziaWG (Ядро Linux `awg0`):**  
+  `/root/amneziawg-client.conf` (MTU 1360 / MSS 1320 / Порт `:51820/udp`).
+* **Конфигурация 3X WireGuard RFC:**  
+  `/root/wireguard-client.conf` (MTU 1420 / MSS 1380 / Порт `:47443/udp`).
 
 ### Матрица поддержки протоколов:
 
-| Клиентское ПО | Платформа | VLESS REALITY | VLESS xHTTP (ML-KEM-768) | Hysteria 2 | AmneziaWG v3.2 / v2.0 | WireGuard Native |
+| Клиентское ПО | Платформа | VLESS REALITY | VLESS xHTTP (ML-KEM-768) | Hysteria 2 | AmneziaWG v3.2 / v2.0 (3X-UI) | Native Kernel `awg0` / 3X WG |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **AmneziaVPN / AmneziaWG** | Все платформы | ❌ | ❌ | ❌ | ✔️ (.conf) | ✔️ (`awg0` .conf / QR) |
 | **v2rayNG** | Android | ✔️ | ✔️ (Xray core) | ✔️ | ❌ | ❌ |
 | **v2rayN** (v6.40+) | Windows | ✔️ | ✔️ (Xray core) | ✔️ | ❌ | ❌ |
-| **Happ Proxy** | iOS, iPadOS | ✔️ | ✔️ (Xray core) | ✔️ | ✔️ (AWG v3.2) | ✔️ |
+| **Happ Proxy** | iOS, iPadOS, Android | ✔️ | ✔️ (Xray core) | ✔️ | ✔️ (AWG v3.2) | ✔️ |
 | **NekoBox (NB+)** | Android | ✔️ | ❌ *(нет ML-KEM)* | ✔️ | ✔️ | ✔️ |
 | **Mihomo Party / Clash Verge** | Desktop | ✔️ | ✔️ | ✔️ | ❌ | ❌ |
-| **KeeneticOS / OpenWrt** | Роутеры | ✔️ | ✔️ | ✔️ | ✔️ (AWG v2.0) | ✔️ (.conf) |
+| **KeeneticOS / OpenWrt** | Роутеры | ✔️ | ✔️ | ✔️ | ✔️ (AWG v2.0) | ✔️ (`awg0` / WG .conf) |
 
 ---
 
 ## 🌐 Приватный DNS AdGuard Home (DoH)
 
-Локальный резолвер AdGuard Home изолирован на `127.0.0.1:3000` и обслуживает запросы через Nginx-шлюз с проверкой ClientID-токена. Внешний доступ к 53 порту перекрыт.
+Локальный резолвер AdGuard Home изолирован на `127.0.0.1:3000` (и `127.0.0.1:53` для внутренних туннелей `10.8.1.0/24`, `10.8.2.0/24`, `10.8.3.0/24`, `10.9.0.0/24`) и обслуживает внешние запросы через Nginx-шлюз с проверкой ClientID-токена. Внешний доступ к 53 порту перекрыт.
 
 * **Панель управления DNS:** `https://dns.yourdomain.online/`
 * **DoH URL для сетевых устройств:** `https://dns.yourdomain.online/dns-query/home-router`
+* **Внутренний DNS для клиентов ядра `awg0`:** `10.9.0.1`
 
 ### Настройка на роутерах Keenetic (KeeneticOS 3.x / 4.x):
 1. Откройте веб-интерфейс -> **«Сетевые правила»** -> **«Интернет-фильтр»** (вкладка «Серверы DNS»).
@@ -582,8 +635,9 @@ nginx -t && systemctl status nginx --no-pager
 # 2. Инспекция Unix-сокета Nginx в памяти RAM
 ls -la /dev/shm/nginx-http.sock
 
-# 3. Верификация ответа веб-маскировки DataSphere Enterprise (HTTP/2)
+# 3. Верификация ответа веб-маскировки DataSphere Enterprise (HTTP/2) и API статуса
 curl -Iv --http2 https://yourdomain.online
+curl -s https://yourdomain.online/api/v1/datasphere/status | jq .
 
 # 4. Проверка Zero-SNI Defense (рукопожатие TLS обязано сбрасываться при обращении по IP)
 curl -Iv https://IP_НОМЕР_1 2>&1 | grep -E 'SSL|handshake|alert'
@@ -594,21 +648,25 @@ curl -Iv --http2 https://yourdomain.online/Stream-One-Path/
 # 6. Инспекция Stub 11443 для Steal-Oneself (должен отдавать 404)
 curl -Iv --http2 http://127.0.0.1:11443 2>&1 | head -n 15
 
-# 7. Инспекция локальных слушающих сокетов
-ss -tlnp | grep -E '10443|55443|50443|45443|46443|9443|11443|3000'
+# 7. Инспекция локальных слушающих TCP-сокетов (включая демон SSO 20443)
+ss -tlnp | grep -E '10443|55443|50443|45443|46443|9443|11443|3000|20443'
 
-# 8. Инспекция UDP-сокетов на IP №2 (Hysteria 2, WireGuard, AWG)
-ss -ulnp | grep -E '443|8443|8444|47443'
+# 8. Инспекция UDP-сокетов на IP №2 (Hysteria 2, 3X WireGuard, AWG v3/v2, Kernel awg0)
+ss -ulnp | grep -E '443|8443|8444|47443|51820'
 
-# 9. Проверка правил UFW, SNAT на IP №2 и MSS Clamping
+# 9. Диагностика ядерного интерфейса AmneziaWG (awg0) и демона DataSphere Core
+systemctl status awg-quick@awg0 datasphere-core --no-pager
+awg show awg0
+
+# 10. Проверка правил UFW, SNAT на IP №2 и фиксации TCP MSS Clamping (1320 / 1380)
 ufw status verbose
 iptables -t nat -L POSTROUTING -n -v
 iptables -t mangle -L FORWARD -n -v
 
-# 10. Проверка версии зафиксированного бинарника Xray-core
+# 11. Проверка версии зафиксированного бинарника Xray-core
 /usr/local/x-ui/bin/xray version
 
-# 11. Инспекция записей БД 3X-UI SQLite
+# 12. Инспекция записей БД 3X-UI SQLite
 sqlite3 /etc/x-ui/x-ui.db "SELECT id, remark, port, protocol, enable FROM inbounds;"
 sqlite3 /etc/x-ui/x-ui.db "SELECT id, email, sub_id, enable FROM clients;"
 sqlite3 /etc/x-ui/x-ui.db "SELECT id, remark, address, port, path, alpn FROM hosts;"
@@ -626,6 +684,7 @@ tar -czvf /root/backup_vpn_$(date +%F_%H%M%S).tar.gz \
   /etc/nginx \
   /etc/letsencrypt \
   /etc/ssl/acme \
+  /etc/amnezia/amneziawg \
   /opt/AdGuardHome/AdGuardHome.yaml \
   /var/www/html \
   /etc/ufw/before.rules 2>/dev/null || true
@@ -634,10 +693,10 @@ chmod 600 /root/backup_vpn_*.tar.gz
 
 ### Восстановление системы:
 ```bash
-systemctl stop x-ui nginx AdGuardHome 2>/dev/null || true
+systemctl stop x-ui nginx AdGuardHome datasphere-core awg-quick@awg0 2>/dev/null || true
 rm -f /etc/x-ui/x-ui.db-wal /etc/x-ui/x-ui.db-shm
 tar -xzvf /root/backup_vpn_ГГГГ-ММ-ДД_ЧЧММСС.tar.gz -C /
-nginx -t && systemctl start nginx x-ui AdGuardHome
+nginx -t && systemctl start nginx x-ui AdGuardHome datasphere-core awg-quick@awg0
 ```
 
 ---
