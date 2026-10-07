@@ -8,9 +8,8 @@
 # VLESS xHTTP (Native H2C Stream-One) + ML-KEM-768 + Multi-Port REALITY + Stub 11443
 # Dual-IP Model 1: Ingress Clean Web (IP1) + Isolated UDP VPN Stack (IP2)
 # Strict Egress Isolation (sendThrough IP#1 for TCP Web | IP#2 for UDP Stack)
-# Multi-Tunnel UDP Engine: Hysteria 2 + AWG v3.2 + AWG v2.0 + 3X WireGuard
-# High-Speed Golden Standard: Native AWG awg0 (MTU 1360 / MSS 1320 / Jmax 70)
-# Zero-SNI Defense (ssl_reject_handshake) + Port 80 444 Drop + WAF v6.0.4 Hardened
+# Multi-Tunnel UDP Engine: Hysteria 2 + AWG v3.2 + AWG v2.0 + 3X WireGuard + Native Kernel AmneziaWG
+# Zero-SNI Defense (ssl_reject_handshake) + Port 80 444 Drop 
 # Zero-Placeholder Guarantee: Production-Grade Monolithic Script
 # ==============================================================================
 
