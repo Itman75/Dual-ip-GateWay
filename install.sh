@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # ==============================================================================
-# Production AutoSetup Monoscript: Hardened Master Engine v3.3.4 Dual-IP
+# Production AutoSetup Monoscript: Hardened Master Engine v3.3.5 Dual-IP
 # Architecture: Dual-IP GateWay Node + Native Kernel AmneziaWG (Bare-Metal)
 # Zero-Leak Frontend: DataSphere SSO In-Memory Gateway + Stealth Admin Hub
 # OS Hardening + BBR + somaxconn + Nginx L4 Stream + 3X-UI + Xray v26.7.28 Pinned
@@ -9,7 +9,7 @@
 # Dual-IP Model 1: Ingress Clean Web (IP1) + Isolated UDP VPN Stack (IP2)
 # Strict Egress Isolation (sendThrough IP#1 for TCP Web | IP#2 for UDP Stack)
 # Multi-Tunnel UDP Engine: Hysteria 2 + AWG v3.2 + AWG v2.0 + 3X WireGuard + Native Kernel AmneziaWG
-# Zero-SNI Defense (ssl_reject_handshake) + Port 80 444 Drop 
+# Zero-SNI Defense (ssl_reject_handshake) + Port 80 444 Drop + WAF v6.0.5 Hardened
 # Zero-Placeholder Guarantee: Production-Grade Monolithic Script
 # ==============================================================================
 
@@ -24,7 +24,7 @@ export PYTHONUTF8=1
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-LOCK_FILE="/var/run/hardened-master-engine-dual-ip-v334.lock"
+LOCK_FILE="/var/run/hardened-master-engine-dual-ip-v335.lock"
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
     echo -e "\033[0;31m[X] Ошибка: Установщик уже выполняется в параллельном процессе.\033[0m" >&2
@@ -57,7 +57,7 @@ trap 'cleanup $LINENO' ERR INT TERM
 
 clear 2>/dev/null || true
 echo -e "${CYAN}=====================================================================${NC}"
-echo -e "${GREEN}  Hardened Master Engine v3.3.4 Universal (Dual-IP Ultra Enhanced)    ${NC}"
+echo -e "${GREEN}  Hardened Master Engine v3.3.5 Universal (Dual-IP Ultra Enhanced)    ${NC}"
 echo -e "${CYAN}  Dual-Mode: Clean Setup / Safe Migration + Nginx L4 Native + 3X-UI  ${NC}"
 echo -e "${WHITE}  Dual-IP Model 1: Ingress Clean Web (IP1) + Isolated UDP VPN (IP2)  ${NC}"
 echo -e "${WHITE}  Egress Policy: Strict sendThrough (TCP -> IP#1 | UDP Stack -> IP#2)${NC}"
@@ -133,16 +133,29 @@ else
     die "Не удалось определить параметры текущего дистрибутива ОС."
 fi
 
+VIRT_TYPE=$(systemd-detect-virt 2>/dev/null || echo "none")
+
 wait_for_apt_lock() {
     local max_wait=120
     local count=0
-    while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; do
+    while :; do
+        local locked=0
+        if command -v fuser >/dev/null 2>&1; then
+            if fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/lib/dpkg/lock >/dev/null 2>&1; then
+                locked=1
+            fi
+        else
+            if pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -x unattended-upgrade >/dev/null 2>&1; then
+                locked=1
+            fi
+        fi
+        [ "$locked" -eq 0 ] && break
         if [ "$count" -ge "$max_wait" ]; then
             warn "Блокировка APT удерживается более ${max_wait}с."
             break
         fi
         if [ "$count" -eq 0 ]; then
-            log "Ожидание завершения фонового обновления..."
+            log "Ожидание завершения фонового обновления пакетов..."
         fi
         sleep 2
         count=$((count + 2))
@@ -154,7 +167,7 @@ log "Первичная подготовка системных утилит..."
 wait_for_apt_lock
 apt-get update -q >/dev/null 2>&1 || true
 wait_for_apt_lock
-apt-get install -y curl bc bind9-dnsutils iproute2 openssl gawk python3 python3-bcrypt xxd unzip jq sqlite3 bsdextrautils gnupg dirmngr psmisc software-properties-common qrencode -q >/dev/null 2>&1 || true
+apt-get install -y curl bc bind9-dnsutils iproute2 openssl gawk python3 python3-bcrypt xxd unzip jq sqlite3 bsdextrautils gnupg dirmngr psmisc software-properties-common qrencode libmnl-dev -q >/dev/null 2>&1 || true
 ok "Базовые утилиты готовы к работе."
 
 validate_port() {
@@ -779,11 +792,16 @@ if [ "$ENABLE_WG_NATIVE" -eq 1 ]; then
 fi
 
 # ШАГ 6.1: Нативный сервер AmneziaWG (Ядро Linux / Bare-Metal на IP №2)
-if prompt_yes_no "Установить НА ТЕХНОЛОГИЯХ ЯДРА нативный сервер AmneziaWG (Bare-Metal на IP №2, MTU 1360 Golden)?" "y"; then
-    ENABLE_NATIVE_AWG=1
-    prompt_port "  Выделенный UDP-порт для нативного сервера AmneziaWG на IP №2" "51820" NATIVE_AWG_PORT
-else
+if [ "$VIRT_TYPE" = "lxc" ] || [ "$VIRT_TYPE" = "openvz" ] || [ "$VIRT_TYPE" = "docker" ]; then
+    warn "Обнаружена среда контейнеризации ($VIRT_TYPE). Нативный DKMS AmneziaWG отключён (требуется KVM/Bare-Metal)."
     ENABLE_NATIVE_AWG=0
+else
+    if prompt_yes_no "Установить НА ТЕХНОЛОГИЯХ ЯДРА нативный сервер AmneziaWG (Bare-Metal на IP №2, MTU 1360 Golden)?" "y"; then
+        ENABLE_NATIVE_AWG=1
+        prompt_port "  Выделенный UDP-порт для нативного сервера AmneziaWG на IP №2" "51820" NATIVE_AWG_PORT
+    else
+        ENABLE_NATIVE_AWG=0
+    fi
 fi
 
 echo
@@ -853,7 +871,8 @@ wait_for_apt_lock
 CORE_PKGS=(
     curl wget bash sudo systemd openssl gawk lsb-release gnupg bind9-dnsutils
     socat cron ufw iptables iproute2 tar apache2-utils fail2ban python3 python3-systemd
-    python3-bcrypt ca-certificates build-essential jq tmux net-tools bc xxd unzip sqlite3 bsdextrautils dirmngr psmisc qrencode
+    python3-bcrypt ca-certificates build-essential jq tmux net-tools bc xxd unzip sqlite3
+    bsdextrautils dirmngr psmisc qrencode libmnl-dev
 )
 apt-get install -y "${CORE_PKGS[@]}" -q || true
 
@@ -1124,6 +1143,9 @@ EOF
 
     wait_for_apt_lock
     if apt-get update -q -o Dir::Etc::sourcelist="sources.list.d/nginx.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" >/dev/null 2>&1; then
+        log "Очистка конфликтующих пакетов дистрибутива перед установкой Mainline..."
+        wait_for_apt_lock
+        apt-get remove -y nginx-common nginx-core libnginx-mod-* 2>/dev/null || true
         USE_OFFICIAL_NGINX_REPO=1
         ok "Репозиторий Nginx Mainline ($NGINX_REPO_CODENAME) верифицирован."
     else
@@ -1138,12 +1160,12 @@ if [ "$USE_OFFICIAL_NGINX_REPO" -eq 0 ]; then
     wait_for_apt_lock
     apt-get update -q
     wait_for_apt_lock
-    apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx libnginx-mod-stream 2>/dev/null || apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx
+    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx libnginx-mod-stream 2>/dev/null || apt-get install -y -q nginx
 else
     wait_for_apt_lock
     apt-get update -q
     wait_for_apt_lock
-    apt-get install -y -q --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confmiss" nginx
+    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx
 fi
 
 # Гарантированное восстановление mime.types при ручной очистке /etc/nginx
@@ -1340,6 +1362,19 @@ if [ "${ENABLE_AGH:-0}" -eq 1 ]; then
 DNSStubListener=no
 EOF
     systemctl restart systemd-resolved 2>/dev/null || true
+
+    # Гарантия разрешения имен хостом на время инициализации
+    if [ "$GEO_PROFILE" = "1" ]; then
+        cat << 'EOF' > /etc/resolv.conf
+nameserver 77.88.8.8
+nameserver 77.88.8.1
+EOF
+    else
+        cat << 'EOF' > /etc/resolv.conf
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+EOF
+    fi
 
     ARCH=$(uname -m)
     case "$ARCH" in
@@ -2311,7 +2346,7 @@ http {
         "" close;
     }
 
-    # Матрица фильтрации сканеров, ботов и AI-парсеров (v6.0.4 Hardened)
+    # Матрица фильтрации сканеров, ботов и AI-парсеров (v6.0.5 Hardened)
     map \$http_user_agent \$badbot_raw {
         default 0;
         "" 1;
@@ -2348,7 +2383,7 @@ http {
         ~^1:[01]:/json/ 0;
         ~^1:[01]:/clash/ 0;
         ~^1:[01]:${BASE_XHTTP_PATH} 0;
-        ~(^1:|:1) 1;
+        ~^(?:1:[01]|0:1): 1;
         default 0;
     }
 
@@ -2704,6 +2739,7 @@ ok "База SQLite 3X-UI готова: $DB_PATH"
 systemctl stop x-ui 2>/dev/null || true
 
 TARGET_XRAY_VERSION="v26.7.28"
+export TARGET_XRAY_VERSION
 log "Инспекция архитектуры и закрепление Xray Core ${TARGET_XRAY_VERSION}..."
 
 SYS_ARCH=$(uname -m)
@@ -2722,6 +2758,7 @@ case "$SYS_ARCH" in
 esac
 
 XRAY_ZIP="/tmp/xray-${TARGET_XRAY_VERSION}.zip"
+export XRAY_ZIP
 rm -f "$XRAY_ZIP"
 
 if [ "$GEO_PROFILE" = "1" ]; then
@@ -3025,11 +3062,13 @@ routing_rules = [
 if enable_agh:
     routing_rules.append({"ip": ["127.0.0.1"], "outboundTag": "direct", "port": "53", "ruleTag": "xui-dns-allow", "type": "field"})
 routing_rules.append({"ip": ["10.8.1.0/24", "10.8.2.0/24", "10.8.3.0/24", "10.9.0.0/24"], "outboundTag": "direct", "type": "field"})
+
+# ИСПРАВЛЕНИЕ УТЕЧКИ DUAL-IP: Все UDP VPN сервисы маршрутизируются в шлюз direct-udp (sendThrough: WAN_IP_UDP)
 routing_rules.append({
     "type": "field",
-    "inboundTag": ["in-hysteria2"],
+    "inboundTag": ["in-hysteria2", "in-8443-udp", "in-awg-v2-legacy", "in-wireguard-native"],
     "outboundTag": "direct-udp",
-    "ruleTag": "route-hy2-to-udp-ip"
+    "ruleTag": "route-all-udp-vpn-to-udp-ip"
 })
 routing_rules.append({"ip": ["geoip:private"], "outboundTag": "blocked", "type": "field"})
 routing_rules.append({"outboundTag": "blocked", "protocol": ["bittorrent"], "type": "field"})
@@ -3544,7 +3583,7 @@ UDP_DEST_TARGET="${UDP_DOMAIN:-$WAN_IP_UDP}"
 if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
     log "Установка пакетов сборки и заголовков ядра..."
     wait_for_apt_lock
-    apt-get install -y build-essential "linux-headers-$(uname -r)" linux-headers-amd64 linux-headers-generic git dkms wireguard-tools -q >/dev/null 2>&1 || true
+    apt-get install -y build-essential "linux-headers-$(uname -r)" linux-headers-generic git dkms wireguard-tools libmnl-dev -q >/dev/null 2>&1 || true
 
     AWG_INSTALLED=0
     if [ "$OS_ID" = "ubuntu" ]; then
@@ -3559,7 +3598,7 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
         fi
     fi
 
-    # Fallback-сборка из исходников для Debian и Ubuntu 24.04+ (Noble)
+    # Fallback-сборка из исходников для Debian 12 и Ubuntu 24.04+ (Noble)
     if [ "$AWG_INSTALLED" -eq 0 ]; then
         log "Сборка AmneziaWG DKMS и нативных утилит из исходного кода..."
         dkms remove amneziawg/1.0.0 --all 2>/dev/null || true
@@ -3567,7 +3606,15 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
 
         git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kmod-src 2>/dev/null || true
         if [ -d "/tmp/awg-kmod-src/src" ]; then
-            make -C /tmp/awg-kmod-src/src dkms-install >/dev/null 2>&1 || true
+            mkdir -p /usr/src/amneziawg-1.0.0
+            cp -r /tmp/awg-kmod-src/src/* /usr/src/amneziawg-1.0.0/
+            cat << 'EOF_DKMS' > /usr/src/amneziawg-1.0.0/dkms.conf
+PACKAGE_NAME="amneziawg"
+PACKAGE_VERSION="1.0.0"
+BUILT_MODULE_NAME[0]="amneziawg"
+DEST_MODULE_LOCATION[0]="/kernel/net"
+AUTOINSTALL="yes"
+EOF_DKMS
             dkms add -m amneziawg -v 1.0.0 2>/dev/null || true
             dkms build -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
             dkms install -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
@@ -3872,7 +3919,8 @@ def build_client_conf(pub_key, host):
             c_text = f.read()
         for k in ["MTU", "Jc", "Jmin", "Jmax", "S1", "S2", "S3", "S4", "H1", "H2", "H3", "H4", "ListenPort", "PrivateKey"]:
             m = re.search(rf"^{k}\s*=\s*([^\s\n\r]+)", c_text, re.M)
-            if m: srv[k] = m.group(1).strip()
+            if m:
+                srv[k] = m.group(1).strip()
     
     clients = load_clients()
     c_info = clients.get(pub_key, {})
@@ -4366,7 +4414,7 @@ fi
 CRED_FILE="/root/vpn_credentials.txt"
 cat << EOF > "$CRED_FILE"
 =====================================================================
-  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Dual-IP Ultra Enhanced v3.3.4)
+  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Dual-IP Ultra Enhanced v3.3.5)
   ОС: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
   Ядро Xray-core: ${DETECTED_XRAY_VER} (Pinned)
   Топология IP:   Модель 1 (Web Ingress: $WAN_IP_WEB | UDP VPN: $WAN_IP_UDP)
@@ -4450,7 +4498,7 @@ chmod 600 "$CRED_FILE"
 
 echo
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В РЕЖИМЕ DUAL-IP (v3.3.4 ULTRA)!         ${NC}"
+echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В РЕЖИМЕ DUAL-IP (v3.3.5 ULTRA)!         ${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
 echo -e "  Сайт-маскировка DataSphere:  ${CYAN}https://${PRIMARY_DOMAIN}/${NC}"
 echo -e "  Скрытый SSO Hub:             ${WHITE}Кнопка «Консоль» в шапке сайта${NC}"
