@@ -137,13 +137,13 @@ flowchart TD
 Выполните команду на сервере под учетной записью суперпользователя `root`:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/ВАШ_АККАУНТ/РЕПОЗИТОРИЙ/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Itman75/Dual-ip-GateWay/main/install.sh)
 ```
 
 Резервный запуск через `wget`:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/ВАШ_АККАУНТ/РЕПОЗИТОРИЙ/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/Itman75/Dual-ip-GateWa/main/install.sh | bash
 ```
 
 ---
